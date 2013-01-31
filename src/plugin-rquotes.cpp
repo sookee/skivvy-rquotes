@@ -28,7 +28,7 @@ http://www.gnu.org/licenses/gpl-2.0.html
 
 '-----------------------------------------------------------------*/
 
-#include <skivvy-rquotes/plugin-rquotes.h>
+#include <skivvy/plugin-rquotes.h>
 
 #include <mutex>
 #include <future>
