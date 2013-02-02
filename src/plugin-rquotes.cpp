@@ -39,7 +39,9 @@ http://www.gnu.org/licenses/gpl-2.0.html
 #include <iostream>
 
 #include <skivvy/str.h>
+#include <skivvy/types.h>
 #include <skivvy/logrep.h>
+#include <skivvy/store.h>
 
 namespace skivvy { namespace rquotes {
 
@@ -51,10 +53,15 @@ using namespace skivvy::utils;
 using namespace skivvy::ircbot;
 using namespace skivvy::string;
 
+const str RQUOTES_STORE = "rquotes.store.file";
+const str RQUOTES_STORE_DEFAULT = "rquotes-store.txt";
+
 class RandomQuoteIrcBotPluginRep
 : public BasicIrcBotPlugin
 {
 	typedef std::set<std::string> channel_set;
+
+	BackupStore store;
 
 	channel_set channels;
 	std::mutex channels_mtx;
@@ -105,25 +112,52 @@ std::string RandomQuoteIrcBotPluginRep::quote()
 	ss << "GET " << "http://www.quotedb.com/quote/quote.php?action=random_quote&=&=&";
 	ss << "\r\n" << std::flush;
 
-	// Read response
-	std::string line;
-	std::vector<std::string> lines;
-	while(std::getline(ss, line) && !trim(line).empty())
-		lines.push_back(line);
+//	sofs ofs(bot.getf("dump_file", "dump.txt"));
+//	char c;
+//	while(ss.get(c))
+//		ofs.put(c);
+//	return "quotes are off-line for repairs.";
 
-	// Parse response to extract quote (q) and author (a).
-	std::string q, a;
-	if(lines.size() > 1)
+
+// document.write('flying by.</span> <br> <span>');
+// document.write('</span>  <i>More quotes from <a href="http://www.quotedb.com/authors/douglas-adams">Douglas Adams</a></i>  <span>');
+
+
+	soss oss;
+	char c;
+	while(ss.get(c))
+		oss.put(c);
+
+	const str html = oss.str();
+	str q, a;
+
+	siz pos = 0;
+	if((pos = extract_delimited_text(html, "document.write('", "</span> <br> <span>", q, pos)) == str::npos)
 	{
-		std::istringstream iss(lines[0]);
-		std::getline(iss, q, '\'');
-		std::getline(iss, q, '<');
-		iss.clear();
-		iss.str(lines[1]);
-		std::getline(iss, a, '>');
-		std::getline(iss, a, '>');
-		std::getline(iss, a, '<');
+		log("rquotes: failed to parse quote: ");
+		return "Quotes off-line, sorry.";
 	}
+
+	trim(q);
+	bug_var(q);
+//	replace(q, "\n", "");
+//	replace(q, "\r", "");
+
+	// </span>  <i>More quotes from <a href="http://www.quotedb.com/authors/douglas-adams">Douglas Adams</a></i>  <span>
+	if((pos = extract_delimited_text(html, "document.write('", "')", a, pos)) == str::npos)
+	{
+		log("rquotes: failed to parse attribution: ");
+		a.clear();
+	}
+	else if((pos = extract_delimited_text(a, "\">", "</a>", a, 0)) == str::npos)
+	{
+		log("rquotes: failed to parse attribution: ");
+		a.clear();
+	}
+
+	// ">Douglas Adams</a>
+
+	bug_var(a);
 	return q + " - " + a;
 }
 
@@ -206,9 +240,11 @@ std::string RandomQuoteIrcBotPluginRep::clean_joke()
 
 RandomQuoteIrcBotPluginRep::RandomQuoteIrcBotPluginRep(IrcBot& bot)
 : BasicIrcBotPlugin(bot)
-//, joke_timer([&](const void* u){ irc->say(*reinterpret_cast<const std::string*>(u), clean_joke()); })
-, joke_timer([&](const void* u){ irc->say(*reinterpret_cast<const std::string*>(u), "06joke: 01" + joke()); })
-//, quote_timer([&](const void* u){ irc->say(*reinterpret_cast<const std::string*>(u), quote()); })
+, store(bot.getf(RQUOTES_STORE, RQUOTES_STORE_DEFAULT))
+, joke_timer([&](const void* u)
+{
+	irc->say(*reinterpret_cast<const std::string*>(u), "06joke: 01" + joke());
+})
 , quote_timer([&](const void* u)
 {
 	str q = quote();
