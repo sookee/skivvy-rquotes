@@ -298,8 +298,8 @@ void RandomQuoteIrcBotPluginRep::jokes_on(const message& msg)
 	joke_timer.set_mindelay(bot.get(JOKE_MINDELAY, JOKE_MINDELAY_DEFAULT));
 	joke_timer.set_maxdelay(bot.get(JOKE_MAXDELAY, JOKE_MAXDELAY_DEFAULT));
 	lock_guard lock(channels_mtx);
-	channels.insert(msg.reply_to_cp());
-	if(joke_timer.on(&(*channels.find(msg.reply_to_cp()))))
+	channels.insert(msg.reply_to());
+	if(joke_timer.on(&(*channels.find(msg.reply_to()))))
 		bot.fc_reply(msg, "Jokes have been turned on for this channel.");
 	else
 		bot.fc_reply(msg, "Jokes are already rollin' in here!");
@@ -309,8 +309,8 @@ void RandomQuoteIrcBotPluginRep::jokes_off(const message& msg)
 {
 	bug_func();
 	lock_guard lock(channels_mtx);
-	channels.insert(msg.reply_to_cp());
-	if(joke_timer.off(&(*channels.find(msg.reply_to_cp()))))
+	channels.insert(msg.reply_to());
+	if(joke_timer.off(&(*channels.find(msg.reply_to()))))
 		bot.fc_reply(msg, "Okay, okay! I'll stop with the jokes already...");
 	else
 		bot.fc_reply(msg, "I wasn't even telling any jokes!");
@@ -322,8 +322,8 @@ void RandomQuoteIrcBotPluginRep::quotes_on(const message& msg)
 	quote_timer.set_mindelay(bot.get(QUOTE_MINDELAY, QUOTE_MINDELAY_DEFAULT));
 	quote_timer.set_maxdelay(bot.get(QUOTE_MAXDELAY, QUOTE_MAXDELAY_DEFAULT));
 	lock_guard lock(channels_mtx);
-	channels.insert(msg.reply_to_cp());
-	if(quote_timer.on(&(*channels.find(msg.reply_to_cp()))))
+	channels.insert(msg.reply_to());
+	if(quote_timer.on(&(*channels.find(msg.reply_to()))))
 		bot.fc_reply(msg, "Quotes have been turned on for this channel.");
 	else
 		bot.fc_reply(msg, "Quotes are already rollin' in here!");
@@ -333,8 +333,8 @@ void RandomQuoteIrcBotPluginRep::quotes_off(const message& msg)
 {
 	bug_func();
 	lock_guard lock(channels_mtx);
-	channels.insert(msg.reply_to_cp());
-	if(quote_timer.off(&(*channels.find(msg.reply_to_cp()))))
+	channels.insert(msg.reply_to());
+	if(quote_timer.off(&(*channels.find(msg.reply_to()))))
 		bot.fc_reply(msg, "Okay, okay! I'll stop with the quotes already...");
 	else
 		bot.fc_reply(msg, "I wasn't even quoting anybody!");
