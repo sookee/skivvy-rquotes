@@ -38,7 +38,8 @@ http://www.gnu.org/licenses/gpl-2.0.html
 #include <sstream>
 #include <iostream>
 
-#include <skivvy/str.h>
+#include <sookee/str.h>
+
 #include <skivvy/types.h>
 #include <skivvy/logrep.h>
 #include <skivvy/utils.h>
@@ -52,7 +53,7 @@ PLUGIN_INFO("rquotes", "Random Quotes", "0.1");
 using namespace skivvy::types;
 using namespace skivvy::utils;
 using namespace skivvy::ircbot;
-using namespace skivvy::string;
+using namespace sookee::string;
 
 const str RQUOTES_STORE = "rquotes.store.file";
 const str RQUOTES_STORE_DEFAULT = "rquotes-store.txt";
