@@ -38,6 +38,8 @@ http://www.gnu.org/licenses/gpl-2.0.html
 #include <sstream>
 #include <iostream>
 
+#include <pcrecpp.h>
+
 #include <sookee/str.h>
 
 #include <skivvy/types.h>
@@ -55,8 +57,21 @@ using namespace skivvy::utils;
 using namespace skivvy::ircbot;
 using namespace sookee::string;
 
+using namespace pcrecpp;
+
 const str RQUOTES_STORE = "rquotes.store.file";
 const str RQUOTES_STORE_DEFAULT = "rquotes-store.txt";
+
+const str QUOTE_MINDELAY = "rquotes.quote.mindelay";
+const delay QUOTE_MINDELAY_DEFAULT = 1 * 60;
+const str QUOTE_MAXDELAY = "rquotes.quote.maxdelay";
+const delay QUOTE_MAXDELAY_DEFAULT = 60 * 60;
+
+const str JOKE_MINDELAY = "rquotes.joke.mindelay";
+const delay JOKE_MINDELAY_DEFAULT = 1 * 60;
+const str JOKE_MAXDELAY = "rquotes.joke.maxdelay";
+const delay JOKE_MAXDELAY_DEFAULT = 60 * 60;
+
 
 class RandomQuoteIrcBotPluginRep
 : public BasicIrcBotPlugin
@@ -105,61 +120,76 @@ public:
 	void instant_joke(const message& msg);
 };
 
+str log_report(const str& msg)
+{
+	if(!msg.empty())
+		log(msg);
+	return "";
+}
+
 // TODO: Fix when quote is too long for one IRC message. Split into multiples
 std::string RandomQuoteIrcBotPluginRep::quote()
 {
-	// basic HTTP GET
+
+	const str POST_DATA = "number=4"
+		"&collection%5B%5D=mgm"
+		"&collection%5B%5D=motivate"
+		"&collection%5B%5D=classic"
+		"&collection%5B%5D=coles"
+		"&collection%5B%5D=lindsly"
+		"&collection%5B%5D=poorc"
+		"&collection%5B%5D=altq"
+		"&collection%5B%5D=20thcent"
+		"&collection%5B%5D=bywomen"
+		"&collection%5B%5D=devils"
+		"&collection%5B%5D=contrib";
+
 	net::socketstream ss;
-	ss.open("www.quotedb.com", 80);
-	ss << "GET " << "http://www.quotedb.com/quote/quote.php?action=random_quote&=&=&";
-	ss << "\r\n" << std::flush;
+	ss.open("www.quotationspage.com", 80);
+	ss << "POST /random.php3 HTTP/1.1" << "\r\n";
+	ss << "Host: www.quotationspage.com" << "\r\n";
+	ss << "User-Agent: Skivvy rquotes: v" << VERSION << "\r\n";
+	ss << "Accept: text/html,application/xhtml+xml,application/xml" << "\r\n";
+	ss << "Referer: http://www.quotationspage.com/random.php3" << "\r\n";
+	ss << "Connection: close" << "\r\n";
+	ss << "Content-Type: application/x-www-form-urlencoded" << "\r\n";
+	ss << "Content-Length: " << POST_DATA.size() << "\r\n";
+	ss << "\r\n";
+	ss << POST_DATA << std::flush;
 
-//	sofs ofs(bot.getf("dump_file", "dump.txt"));
-//	char c;
-//	while(ss.get(c))
-//		ofs.put(c);
-//	return "quotes are off-line for repairs.";
-
-
-// document.write('flying by.</span> <br> <span>');
-// document.write('</span>  <i>More quotes from <a href="http://www.quotedb.com/authors/douglas-adams">Douglas Adams</a></i>  <span>');
-
-
-	soss oss;
 	char c;
+	soss oss;
 	while(ss.get(c))
 		oss.put(c);
 
-	const str html = oss.str();
-	str q, a;
+	if(bot.has("rquotes.dump.file"))
+		sofs(bot.getf("rquotes.dump.file")) << oss.str();
 
-	siz pos = 0;
-	if((pos = extract_delimited_text(html, "document.write('", "</span> <br> <span>", q, pos)) == str::npos)
-	{
-		log("rquotes: failed to parse quote: ");
-		return "Quotes off-line, sorry.";
-	}
+	RE re("");
+	RE_Options ops;
+	ops.set_dotall(true);
+	ops.set_caseless(true);
 
+	str q, a, q_a;
+
+	q_a = oss.str();
+	for(const str& pcre: bot.get_vec("rquotes.quote.pcre.q_a"))
+		if(!(re = RE(pcre, ops)).PartialMatch(q_a, &q_a))
+			return log_report(re.error());
+	trim(q_a);
+
+	q = q_a;
+	for(const str& pcre: bot.get_vec("rquotes.quote.pcre.q"))
+		if(!(re = RE(pcre, ops)).PartialMatch(q, &q))
+			return log_report(re.error());
 	trim(q);
-	bug_var(q);
-//	replace(q, "\n", "");
-//	replace(q, "\r", "");
 
-	// </span>  <i>More quotes from <a href="http://www.quotedb.com/authors/douglas-adams">Douglas Adams</a></i>  <span>
-	if((pos = extract_delimited_text(html, "document.write('", "')", a, pos)) == str::npos)
-	{
-		log("rquotes: failed to parse attribution: ");
-		a.clear();
-	}
-	else if((pos = extract_delimited_text(a, "\">", "</a>", a, 0)) == str::npos)
-	{
-		log("rquotes: failed to parse attribution: ");
-		a.clear();
-	}
+	a = q_a;
+	for(const str& pcre:  bot.get_vec("rquotes.quote.pcre.a"))
+		if(!(re = RE(pcre, ops)).PartialMatch(a, &a))
+			return log_report(re.error());
+	trim(a);
 
-	// ">Douglas Adams</a>
-
-	bug_var(a);
 	return q + " - " + a;
 }
 
@@ -177,18 +207,33 @@ std::string RandomQuoteIrcBotPluginRep::joke()
 		ss.open("onelinerz.net", 80);
 		ss << "GET " << "/random-one-liners/1/ HTTP/1.1\r\n";
 		ss << "Host: www.onelinerz.net" << "\r\n";
-		ss << "User-Agent: Skivvy: " << VERSION << "\r\n";
+		ss << "User-Agent: Skivvy rquotes: v" << VERSION << "\r\n";
 		ss << "Accept: text/html" << "\r\n";
 		ss << "\r\n" << std::flush;
 
-		std::string line;
-		while(std::getline(ss, line))
-			if(extract_delimited_text(line, R"(class="oneliner">)", R"(</div>)", j) != str::npos)
-				break;
+		char c;
+		soss oss;
+		while(ss.get(c))
+			oss.put(c);
+
+		if(bot.has("rquotes.dump.file"))
+			sofs(bot.getf("rquotes.dump.file")) << oss.str();
+
+		RE re("");
+		RE_Options ops;
+		ops.set_dotall(true);
+		ops.set_caseless(true);
+
+		j = oss.str();
+		for(const str& pcre: bot.get_vec("rquotes.joke.pcre"))
+			if(!(re = RE(pcre, ops)).PartialMatch(j, &j))
+				return log_report(re.error());
+		trim(j);
+
 		prev = time(0);
 	}
 
-	return j.empty() ? "Feature under construction." : j;
+	return j.empty() ? "Sorry but I'm not feeling vary funny right now." : j;
 }
 
 std::string get_clean_joke()
@@ -198,16 +243,9 @@ std::string get_clean_joke()
 	ss.open("jokesclean.com", 80);
 	ss << "GET " << "/OneLiner/Random/ HTTP/1.1\r\n";
 	ss << "Host: www.jokesclean.com" << "\r\n";
-	ss << "User-Agent: Skivvy: " << VERSION << "\r\n";
+	ss << "User-Agent: Skivvy rquotes: v" << VERSION << "\r\n";
 	ss << "Accept: text/html" << "\r\n";
 	ss << "\r\n" << std::flush;
-
-//	std::ostringstream oss;
-//	std::ofstream ofs("dump.html");
-//	for(char c; ss.get(c); oss.put(c)) ofs.put(c);
-
-	// <font size="+2">Every morning is the dawn of a new error.</font>
-	// <font size="+2">He who hesitates is probably right.</font>
 
 	std::string line;
 	while(std::getline(ss, line))
@@ -283,16 +321,6 @@ void RandomQuoteIrcBotPluginRep::instant_joke(const message& msg)
 //	bot.fc_reply(msg, get_clean_joke());
 	bot.fc_reply(msg, "06joke: 01" + joke());
 }
-
-const str QUOTE_MINDELAY = "quote.mindelay";
-const delay QUOTE_MINDELAY_DEFAULT = 1 * 60;
-const str QUOTE_MAXDELAY = "quote.maxdelay";
-const delay QUOTE_MAXDELAY_DEFAULT = 60 * 60;
-
-const str JOKE_MINDELAY = "joke.mindelay";
-const delay JOKE_MINDELAY_DEFAULT = 1 * 60;
-const str JOKE_MAXDELAY = "joke.maxdelay";
-const delay JOKE_MAXDELAY_DEFAULT = 60 * 60;
 
 void RandomQuoteIrcBotPluginRep::jokes_on(const message& msg)
 {
