@@ -1,6 +1,6 @@
 #pragma once
-#ifndef _SKIVVY_IRCBOT_RQUOTE_H_
-#define _SKIVVY_IRCBOT_RQUOTE_H_
+#ifndef SKIVVY_IRCBOT_RQUOTE_H
+#define SKIVVY_IRCBOT_RQUOTE_H
 /*
  * ircbot-rquote.h
  *
@@ -65,4 +65,4 @@ public:
 
 }} // skivvy::rquotes
 
-#endif // _SKIVVY_IRCBOT_RQUOTE_H_
+#endif // SKIVVY_IRCBOT_RQUOTE_H

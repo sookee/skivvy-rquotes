@@ -26,8 +26,6 @@ plugin_librarydir = $(libdir)/skivvy
 plugin_manualsdir = $(mandir)/skivvy
 
 DEF_FLAGS = \
-	-D _GLIBCXX_USE_NANOSLEEP \
-	-D _GLIBCXX_USE_SCHED_YIELD \
 	-D STAMP=\"$(shell date +%Y%m%d-%H%M%S)\" \
 	-D DEV=\"$(shell git diff --quiet || echo -dev)\" \
 	-D COMMITS=\"$(shell printf %04d \"$(git log --after={yesterday} --pretty=oneline|wc -l)\")\" \
@@ -37,11 +35,11 @@ DEF_FLAGS = \
 GEN_FLAGS = -Wl,-E -Wfatal-errors -Wall -Wextra -Winit-self -ansi -pedantic -pipe -pthread \
 	-I$(top_srcdir)/src/include
 	
-AM_CXXFLAGS = $(GEN_FLAGS) $(DEF_FLAGS) -std=gnu++11
+AM_CPPFLAGS = $(SOOKEE_CFLAGS) $(SKIVVY_CFLAGS)
+AM_CXXFLAGS = $(GEN_FLAGS) $(DEF_FLAGS)
 
-BOTLIBS = -lskivvy -ldl
 # -Wl,-E is required for programs that load plugin's
-BOTFLAGS = -Wl,-E
+PLUGIN_FLAGS = -Wl,-E
 
 plugin_include_HEADERS = \
 	$(srcdir)/include/skivvy/plugin-rquotes.h
@@ -51,7 +49,8 @@ plugin_library_LTLIBRARIES =  \
 
 # IrcBot plugins
 skivvy_plugin_rquotes_la_SOURCES = plugin-rquotes.cpp
-skivvy_plugin_rquotes_la_LDFLAGS = -module -avoid-version
+skivvy_plugin_rquotes_la_LDFLAGS = -module -avoid-version $(PLUGIN_FLAGS)
+skivvy_plugin_rquotes_la_LIBADD =  $(SOOKEE_LIBS) $(SKIVVY_LIBS) -L.libs
 
 plugin_manuals_DATA = $(top_srcdir)/docs/rquotes-manual.text
 
